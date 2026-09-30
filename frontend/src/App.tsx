@@ -152,11 +152,15 @@ function MemoryPage() {
   const [mems, setMems] = useState<Memory[]>([]);
   const [ctype, setCtype] = useState('FACT');
   const [ccontent, setCcontent] = useState('');
+  const [storage, setStorage] = useState('');
   const load = useCallback(async () => setMems(await api.memories(filter || undefined)), [filter]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); api.models().then(m => setStorage(m.storage?.label ?? '')).catch(() => {}); }, [load]);
   const search = async () => { if (q.trim()) setMems(await api.searchMemory(q)); };
   return (
     <div>
+      <div className="card"><h3>Memory Storage</h3>
+        <div className="muted">Private local storage{storage ? `: ${storage}` : ''} · not in Git · shown via API only</div>
+      </div>
       <div className="card"><h3>Search memory</h3>
         <div className="row"><input value={q} onChange={e => setQ(e.target.value)} placeholder="semantic search…" /><button className="primary" onClick={search}>Search</button>
           <select value={filter} onChange={e => setFilter(e.target.value)} style={{ maxWidth: 160 }}><option value="">all types</option>{['FACT', 'PREFERENCE', 'PROJECT', 'GOAL', 'DECISION', 'EXPERIENCE', 'SKILL', 'WORKFLOW'].map(t => <option key={t} value={t}>{t}</option>)}</select></div>

@@ -28,7 +28,9 @@ policy = PolicyEngine()
 tools = ToolRegistry(policy=policy)
 router = ModelRouter()
 store = ExecutionStore()
-skills = SkillRegistry(skills_dir="skills")
+# Curated repo skills + private user skills (approved discoveries live outside git).
+skills = SkillRegistry(skills_dir="skills",
+                       extra_dirs=[str(_settings.skills_data_dir())])
 orchestrator = Orchestrator(store, skills, Deps(memory=memory, tools=tools, audit=audit,
                                                 router=router, policy=policy))
 

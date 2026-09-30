@@ -20,8 +20,10 @@ class Skill(BaseModel):
 
 
 class SkillRegistry:
-    def __init__(self, skills_dir: str = "skills"):
+    def __init__(self, skills_dir: str = "skills", extra_dirs: list[str] | None = None):
         self.skills_dir = skills_dir
+        # Private user skills (e.g. approved discoveries under AETHER_DATA_DIR).
+        self.extra_dirs = extra_dirs or []
         self.skills: dict[str, Skill] = {}
         self.reload()
 
@@ -30,6 +32,7 @@ class SkillRegistry:
         # also try repo-root skills/ when running from backend/
         if Path("../skills").exists():
             candidates.append(Path("../skills"))
+        candidates.extend(Path(d) for d in self.extra_dirs)
         self.skills = {}
         for base in candidates:
             if not base.exists():

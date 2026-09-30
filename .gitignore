@@ -1,10 +1,18 @@
 __pycache__/
 *.pyc
 .venv/
+venv/
 node_modules/
 dist/
 *.db
+*.sqlite
+*.sqlite3
 *.log
 .env
 .DS_Store
 AGENTS.md
+
+# AETHER private user data (never commit personal memory)
+.aether/
+data/private/
+skills/discovered-*/

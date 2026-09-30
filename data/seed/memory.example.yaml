@@ -1,0 +1,36 @@
+# AETHER personal memory template — FICTIONAL placeholder data only.
+# Copy to ~/.aether/personal_memory.yaml, replace with your own facts, then:
+#   python -m backend.demo.seed_memory --file ~/.aether/personal_memory.yaml
+# Never commit your filled-in file to Git.
+
+user:
+  name: Demo User
+  role: Computer Science Student
+
+interests:
+  - artificial intelligence
+  - software development
+
+preferences:
+  communication_style: concise
+
+projects:
+  - name: Demo Project
+    description: A fictional weekend project for learning purposes.
+
+goals:
+  - Finish the fictional demo build.
+
+decisions:
+  - Chose a fictional stack for the demo project.
+
+workflows:
+  - Review demo notes every fictional Friday.
+
+# Fully explicit entries (optional). Valid types: FACT PREFERENCE PROJECT GOAL
+# DECISION EXPERIENCE SKILL WORKFLOW.
+memories:
+  - type: FACT
+    content: Demo User enjoys concise briefings.
+    source: user_profile
+    confidence: 0.8

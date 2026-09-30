@@ -177,8 +177,8 @@ async def discovery_proposals():
 @router.post("/discovery/{proposal_id}/approve")
 async def discovery_approve(proposal_id: str):
     import re
-    from pathlib import Path
     from agents.specialized import AGENTS
+    from core.config import get_settings
     from skills.discovery import find_proposals, render_skill_yaml
     proposals = {p.id: p for p in find_proposals(
         d.store.list(200), {s.name for s in d.skills.list()},
@@ -187,8 +187,9 @@ async def discovery_approve(proposal_id: str):
     if not p:
         return {"error": "proposal not found (it may no longer qualify)"}
     slug = re.sub(r"[^a-z0-9-]+", "-", p.name.lower()).strip("-")[:48]
-    base = next((b for b in (Path("skills"), Path("../skills")) if b.exists()), Path("skills"))
-    target = base / f"discovered-{slug}" / "skill.yaml"  # one level: registry scans */skill.yaml
+    # Approved discoveries are private user data: keep them outside the repo.
+    private_skills = get_settings().skills_data_dir()
+    target = private_skills / f"discovered-{slug}" / "skill.yaml"  # registry scans */skill.yaml
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(render_skill_yaml(p))
     d.skills.reload()
@@ -207,7 +208,10 @@ async def activity(limit: int = 100):
 @router.get("/models")
 async def models():
     from core.config import get_settings
+    s = get_settings()
     return {"provider": d.router.provider.name, "models": d.router.models,
             "status": d.router.status(),  # safe: no keys or headers
-            "demo_mode": get_settings().demo_mode,
+            "demo_mode": s.demo_mode,
+            # Private-local label only (~ form); never an absolute home path.
+            "storage": {"kind": "private-local", "label": s.display_data_dir()},
             "db": "postgres" if d.db_available else "sqlite/in-memory"}

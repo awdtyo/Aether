@@ -20,11 +20,15 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://aether:aether@db:5432/aether
+      # Private user data (skills approved via discovery, local caches).
+      # Mount your host data dir; nothing personal is baked into the image.
+      AETHER_DATA_DIR: /data/aether
     ports:
       - "8000:8000"
     volumes:
       - ./skills:/app/skills:ro
       - aether_workspace:/tmp/aether_workspace
+      - ${AETHER_DATA_DIR:-${HOME}/.aether}:/data/aether
     depends_on:
       db:
         condition: service_healthy

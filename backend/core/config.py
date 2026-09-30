@@ -51,8 +51,39 @@ class Settings(BaseSettings):
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
 
+    # Local/private AETHER data directory. Do not commit personal memory data.
+    aether_data_dir: str = "~/.aether"
+
     # Controlled demo environment (deterministic sample data, no credentials).
     demo_mode: bool = False
+
+    # -- private data directory ------------------------------------------
+    def data_dir(self) -> Path:
+        """Expanded private data dir, created on demand (idempotent)."""
+        path = Path(self.aether_data_dir).expanduser()
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def display_data_dir(self) -> str:
+        """Human label with ~ (never leaks absolute home paths to the UI)."""
+        path = Path(self.aether_data_dir).expanduser()
+        try:
+            return "~/" + str(path.relative_to(Path.home()))
+        except ValueError:
+            return str(path)
+
+    def memory_db_path(self) -> Path:
+        mem = self.data_dir() / "memory"
+        mem.mkdir(parents=True, exist_ok=True)
+        return mem / "memory.db"
+
+    def memory_db_url(self) -> str:
+        return f"sqlite+aiosqlite:///{self.memory_db_path()}"
+
+    def skills_data_dir(self) -> Path:
+        skills = self.data_dir() / "skills"
+        skills.mkdir(parents=True, exist_ok=True)
+        return skills
 
     def validate_model_config(self) -> list[str]:
         """Startup validation. Returns human-readable problems (empty = ok).

@@ -105,12 +105,61 @@ last-verified, and embeddings. A `worth_persisting()` gate keeps raw chat
 out; semantic search + type/source filters power recall, related-memory
 lookup, and agent context. Provenance is visible on every memory card.
 
+## Private Memory
+
+AETHER separates application code from personal user data.
+
+Public repository:
+
+```text
+GitHub
+  ├── AETHER runtime
+  ├── agents
+  ├── skills
+  ├── tools
+  ├── policies
+  └── memory engine
+```
+
+Private local data:
+
+```text
+~/.aether/
+  ├── memory/memory.db
+  ├── skills/        # your approved discoveries
+  ├── config/
+  └── audit/
+```
+
+Personal memory is intentionally excluded from version control
+(`.gitignore` covers `.aether/`, `*.db`, `.env`). Configure the location with
+`AETHER_DATA_DIR=~/.aether` (default; `~` is expanded, directories are
+created automatically). Explicit `DATABASE_URL` still wins (e.g. Postgres in
+Docker). With Docker, mount your host dir: the compose file maps
+`${AETHER_DATA_DIR:-${HOME}/.aether}:/data/aether`, and `.dockerignore`
+keeps local databases out of images.
+
+Import your own memory (fictional template at `data/seed/memory.example.yaml`):
+
+```bash
+cp data/seed/memory.example.yaml ~/.aether/personal_memory.yaml
+# edit with your own facts, then:
+python -m backend.demo.seed_memory --file ~/.aether/personal_memory.yaml
+```
+
+The importer validates the YAML schema, skips entries whose content already
+exists (safe to re-run), and reports `added=`/`skipped=` counts without
+printing your data. Source labels used: `user_profile`, `user_preference`,
+`project_context`, `workflow`, `user_input`.
+
 ## Skills & discovery
 
 File-based `skills/*/skill.yaml` (tools, permissions, version, agent).
 Experimental **Skill Discovery** proposes reusable skills from repeated
-completed executions — creation happens only through explicit approval,
-and the new skill appears live in the Skills UI.
+completed executions — creation happens only through explicit approval.
+Approved discoveries are written to your private data dir
+(`~/.aether/skills/`), never into the Git repository, and appear live in
+the Skills UI.
 
 ## Agents, permissions, audit
 

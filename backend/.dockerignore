@@ -1,0 +1,7 @@
+# Never bake private user data into images.
+*.db
+*.sqlite
+*.sqlite3
+.env
+__pycache__/
+*.pyc
