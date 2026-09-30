@@ -32,5 +32,5 @@ export const api = {
   runSkill: (name: string, input: string) => fetch(`${BASE}/api/skills/${name}/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input }) }).then(j<any>),
   tools: () => fetch(`${BASE}/api/tools`).then(j<any[]>),
   activity: () => fetch(`${BASE}/api/activity?limit=100`).then(j<AuditEvent[]>),
-  models: () => fetch(`${BASE}/api/models`).then(j<{ provider: string; models: Record<string, string> }>)
+  models: () => fetch(`${BASE}/api/models`).then(j<{ provider: string; models: Record<string, string>; status: { provider: string; endpoint: string; model: string; state: string } }>)
 };

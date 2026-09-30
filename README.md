@@ -18,6 +18,29 @@ cd ../frontend && npm install && npm run dev
 Open http://localhost:5173. The backend runs on :8000 with a local mock model,
 SQLite storage, and in-workspace sandboxed tools. No API keys needed.
 
+## NVIDIA Nemotron via OpenRouter
+
+AETHER can run NVIDIA Nemotron through OpenRouter using its
+OpenAI-compatible API.
+
+Configure:
+
+```env
+MODEL_PROVIDER=openai_compatible
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_API_KEY=<your key>
+MODEL_NAME=nvidia/nemotron-3.5-lightning
+```
+
+Any OpenRouter model id works (e.g. `MODEL_NAME=nvidia/nemotron-3-ultra-550b-a55b`)
+with no code changes. `OPENROUTER_API_KEY` is accepted as an alias when
+`OPENAI_API_KEY` is empty. Optional `OPENROUTER_HTTP_REFERER` /
+`OPENROUTER_X_TITLE` headers are sent only when set.
+
+The application also supports the local/mock provider (`MODEL_PROVIDER=mock`,
+the default) for offline development and tests. The Tools page shows
+provider, model, and connection status — never API keys.
+
 ## Production (Postgres + pgvector + Nebius)
 
 ```bash

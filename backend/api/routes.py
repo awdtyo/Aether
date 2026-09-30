@@ -159,4 +159,5 @@ async def activity(limit: int = 100):
 @router.get("/models")
 async def models():
     return {"provider": d.router.provider.name, "models": d.router.models,
+            "status": d.router.status(),  # safe: no keys or headers
             "db": "postgres" if d.db_available else "sqlite/in-memory"}

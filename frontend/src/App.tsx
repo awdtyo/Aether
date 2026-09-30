@@ -158,7 +158,7 @@ function ToolsPage() {
   const { data } = usePoll(() => api.tools(), 5000);
   const models = usePoll(() => api.models(), 10000);
   return <div>
-    <div className="card"><h3>Model router</h3><div className="muted">provider: {models.data?.provider} · {JSON.stringify(models.data?.models)}</div></div>
+    <div className="card"><h3>Model router</h3><div className="muted">provider: {models.data?.status?.provider ?? models.data?.provider} · model: {models.data?.status?.model} · status: {models.data?.status?.state}</div></div>
     {data?.map((t: any) => (
       <div key={t.name} className="card"><h3>{t.name} · {t.risk_level}</h3><div>{t.description}</div>
         <div style={{ marginTop: 6 }}>{(t.required_permissions || []).map((p: string) => <span key={p} className="pill amber">{p}</span>)}</div></div>))}
