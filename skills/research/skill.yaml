@@ -1,0 +1,10 @@
+name: research
+description: Analyze a research topic with memory recall and summarization
+version: 0.1.0
+agent: research
+instructions: >
+  Search memory for prior work, summarize the topic, list open questions and next experiments.
+inputs: {topic: string}
+outputs: {brief: string}
+required_tools: [web, notes]
+required_permissions: [web:search]

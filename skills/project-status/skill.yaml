@@ -1,0 +1,10 @@
+name: project-status
+description: Summarize repo state, recent commits and open TODOs
+version: 0.1.0
+agent: developer
+instructions: >
+  Inspect git status/log, list TODOs, and propose next development steps.
+inputs: {repo: string}
+outputs: {status: string}
+required_tools: [git, filesystem]
+required_permissions: [git:read]

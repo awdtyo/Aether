@@ -1,0 +1,10 @@
+name: daily-planning
+description: Build a focused daily plan from goals, memories and calendar
+version: 0.1.0
+agent: planning
+instructions: >
+  Review goals and calendar, then output Top 3 priorities, time blocks, and risks.
+inputs: {date: string}
+outputs: {plan: string}
+required_tools: [calendar, notes]
+required_permissions: [calendar:read]

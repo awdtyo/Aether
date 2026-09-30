@@ -1,0 +1,11 @@
+name: meeting-preparation
+description: Prepare a concise brief for an upcoming meeting using memory + calendar
+version: 0.1.0
+agent: research
+instructions: >
+  Retrieve relevant memories and calendar events, then produce a brief with
+  Objective, Background, Key points, Open questions, Next actions.
+inputs: {topic: string}
+outputs: {brief: string}
+required_tools: [calendar, notes, email]
+required_permissions: [calendar:read, email:send]
