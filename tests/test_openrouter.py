@@ -180,6 +180,26 @@ async def test_retry_then_success(monkeypatch, fake_http):
     assert resp.text == "recovered" and len(cli.calls) == 2
 
 
+@pytest.mark.asyncio
+async def test_empty_response_retried_once_then_error(monkeypatch, fake_http):
+    from models.providers import ChatMessage, OpenAICompatibleProvider, ProviderError
+    p = OpenAICompatibleProvider("https://openrouter.ai/api/v1", "k", max_retries=1)
+    cli = FakeClient()
+    cli.script.extend([
+        FakeResponse(200, {"choices": [{"message": {"content": "  "}}]}),
+        FakeResponse(200, ok_payload("second try works"))])
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: cli)
+    resp = await p.chat([ChatMessage(role="user", content="hi")], model="m")
+    assert resp.text == "second try works" and len(cli.calls) == 2
+    cli2 = FakeClient()
+    cli2.script.extend([
+        FakeResponse(200, {"choices": [{"message": {"content": ""}}]}),
+        FakeResponse(200, {"choices": [{"message": {"content": ""}}]})])
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: cli2)
+    with pytest.raises(ProviderError, match="empty response"):
+        await p.chat([ChatMessage(role="user", content="hi")], model="m")
+
+
 # -- structured output -------------------------------------------------------
 
 
@@ -247,16 +267,24 @@ def _orch(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_runtime_via_openrouter_stub(monkeypatch, fake_http):
+    import json as _json
     from runtime.schemas import ExecutionState
     with openrouter_env(monkeypatch):
         orch = _orch(monkeypatch)
         cli = FakeClient()
+        cli.script.append(FakeResponse(200, ok_payload(_json.dumps(
+            {"agent": "research", "skill": "meeting-preparation",
+             "plan": ["recall memory", "check calendar", "write brief"],
+             "confidence": 0.9}))))
         cli.script.append(FakeResponse(200, ok_payload("Nemotron brief: agenda, risks, actions.")))
         monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: cli)
         ex = await orch.handle("Prepare my research meeting for tomorrow.")
         assert ex.state == ExecutionState.COMPLETED
         assert ex.skill == "meeting-preparation" and ex.agent == "research"
         assert "Nemotron brief" in (ex.result or "")
+        planned = [e for e in await orch.deps.audit.list(execution_id=ex.id, limit=50)
+                   if e.action == "intent_classified"]
+        assert planned and "source=llm" in planned[0].reason
 
 
 @pytest.mark.asyncio

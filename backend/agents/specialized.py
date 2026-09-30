@@ -31,7 +31,13 @@ class ResearchAgent(Agent):
         resp = await deps.router.generate(
             f"Prepare a concise research/meeting brief for: {ctx.user_request}\nCalendar: {cal_txt}",
             tier="reasoning", context=mem_txt,
-            system="You are AETHER ResearchAgent. Produce: Objective, Background, Key points, Open questions, Next actions.")
+            system=("You are AETHER ResearchAgent. Write in clear, natural prose a colleague "
+                    "would actually send — no filler, no stiff templates. Sections: Objective, "
+                    "Background, Key points, Open questions, Next actions. Ground every factual "
+                    "claim in the provided memory/calendar context and say where it came from "
+                    "(e.g. 'per your calendar', 'from memory'); never invent times, attendees, "
+                    "or topics. Anything not in the context must be phrased as a suggestion, "
+                    "never stated as fact."))
         return AgentResult(text=resp.text)
 
 

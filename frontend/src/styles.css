@@ -19,6 +19,20 @@ button.danger { background: var(--red); border: 0; border-radius: 8px; padding: 
 .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--panel2); border: 1px solid #2c3a5a; margin-right: 6px; }
 .pill.green { color: var(--green); } .pill.amber { color: var(--amber); } .pill.red { color: var(--red); }
 pre.result { white-space: pre-wrap; background: #0e1420; padding: 12px; border-radius: 8px; font-size: 13px; }
+.answer { margin-top: 12px; }
+.md h3 { font-size: 16px; margin: 14px 0 6px; text-transform: none; letter-spacing: 0; color: var(--text); }
+.md h4 { font-size: 14px; margin: 12px 0 4px; color: var(--text); }
+.md-section { font-weight: 700; margin: 12px 0 4px; }
+.md p { margin: 6px 0; font-size: 14px; line-height: 1.55; }
+.md ul { margin: 6px 0; padding-left: 22px; font-size: 14px; line-height: 1.55; }
+.md li { margin: 3px 0; }
+.error { color: var(--red); background: #1d0f12; border: 1px solid #5b232a; border-radius: 8px; padding: 10px; font-size: 13px; }
+details.muted summary { cursor: pointer; margin-top: 8px; }
+.approval { border: 2px solid var(--amber); box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15); }
+.boundary { font-size: 11px; letter-spacing: 1.5px; color: var(--amber); font-weight: 800; margin-bottom: 6px; }
+.steps .step { border-left: 3px solid var(--accent); padding: 6px 0 6px 12px; }
+.connector { color: var(--muted); padding-left: 12px; line-height: 1; }
+.provenance { background: #0e1420; border-radius: 8px; padding: 10px; margin-top: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
 .timeline { display: flex; flex-direction: column; gap: 8px; }
 .timeline .ev { border-left: 2px solid #2c3a5a; padding-left: 12px; font-size: 13px; }
 .muted { color: var(--muted); font-size: 12px; }

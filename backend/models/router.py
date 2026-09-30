@@ -47,6 +47,24 @@ class ModelRouter:
                 "state": "Connected" if configured else "Not Configured"
                 if self.provider.name != "mock" else "Local mock"}
 
+    async def generate_structured(self, prompt: str, schema, system: str,
+                                  tier: str = "fast"):
+        """Model-driven structured decisions, Pydantic-validated.
+
+        Raises ProviderError when the provider cannot do structured output
+        (e.g. local mock) — callers must fall back to deterministic rules.
+        The result only ever selects names; it never authorizes anything."""
+        from models.providers import ProviderError
+        fn = getattr(self.provider, "generate_json", None)
+        if fn is None:
+            raise ProviderError("Provider does not support structured output.")
+        from models.providers import ChatMessage
+        return await fn([ChatMessage(role="system", content=system),
+                         ChatMessage(role="user", content=prompt)],
+                        model=self.models.get(tier, self.default_model),
+                        schema=schema, temperature=0.1,
+                        max_tokens=self.max_tokens)
+
     def pick_tier(self, task: str, multimodal: bool = False, complex: bool = False) -> str:
         if multimodal:
             return "multimodal"

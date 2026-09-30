@@ -15,12 +15,37 @@ log = setup_logging(get_settings().log_level)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    s = get_settings()
+    for problem in s.validate_model_config():
+        log.warning("model config: %s", problem)
+    if s.model_provider == "mock":
+        log.info("model provider: local mock (set MODEL_PROVIDER=openai_compatible for Nebius/OpenRouter)")
+    else:
+        log.info("model provider: %s endpoint=%s model=%s",
+                 s.model_provider, s.openai_base_url, s.model_name)
     try:
         from database.db import init_db
         await init_db()
         log.info("database initialized")
     except Exception as e:
         log.warning("db init skipped (%s); using in-memory fallback", e)
+    if s.demo_mode:
+        try:
+            from api.deps import memory as _mem
+            from demo.seed_data import DEMO_EVENTS, DEMO_MEMORIES, DEMO_NOTES, DEMO_SOURCE
+            from memory.schemas import MemoryCreate, MemoryType
+            from tools import stubs
+            have = {m.content for m in await _mem.list(limit=500)}
+            added = 0
+            for mtype, content, conf in DEMO_MEMORIES:
+                if content not in have:
+                    await _mem.create(MemoryCreate(type=MemoryType(mtype), content=content,
+                                                   source=DEMO_SOURCE, confidence=conf))
+                    added += 1
+            cal = stubs.ensure_demo(DEMO_EVENTS, DEMO_NOTES)
+            log.info("demo mode: seeded %s memories, %s", added, cal)
+        except Exception as e:
+            log.warning("demo seeding skipped (%s)", e)
     yield
 
 

@@ -2,11 +2,23 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _find_env_file() -> str:
+    """Locate .env regardless of process CWD (repo root or backend/)."""
+    here = Path(__file__).resolve()
+    for candidate in (Path.cwd() / ".env",
+                      here.parent.parent.parent / ".env",  # repo root
+                      here.parent.parent / ".env"):  # backend/
+        if candidate.exists():
+            return str(candidate)
+    return ".env"
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_find_env_file(), extra="ignore")
 
     app_name: str = "AETHER"
     log_level: str = "INFO"
@@ -30,13 +42,40 @@ class Settings(BaseSettings):
     # Optional OpenRouter metadata headers (sent only when set).
     openrouter_http_referer: str = ""
     openrouter_x_title: str = "AETHER"
-    # Provider behavior knobs.
+    # Provider behavior knobs. max_tokens must leave headroom for Nemotron's
+    # reasoning tokens (which count toward the completion budget).
     model_temperature: float = 0.3
-    model_max_tokens: int = 1024
+    model_max_tokens: int = 4096
     model_timeout_s: float = 60.0
 
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
+
+    # Controlled demo environment (deterministic sample data, no credentials).
+    demo_mode: bool = False
+
+    def validate_model_config(self) -> list[str]:
+        """Startup validation. Returns human-readable problems (empty = ok).
+
+        Mock mode is always valid. Remote providers stay alive without a key
+        so the API boots; executions then fail cleanly per-call."""
+        problems: list[str] = []
+        if self.model_provider == "mock":
+            return problems
+        if self.model_provider not in ("openai_compatible", "nebius", "openrouter"):
+            problems.append(
+                f"Unknown MODEL_PROVIDER={self.model_provider!r}; "
+                "expected mock | openai_compatible | nebius. Using local mock.")
+            return problems
+        if not (self.openai_api_key or self.openrouter_api_key):
+            problems.append(
+                "No model API key configured. Set OPENAI_API_KEY (or "
+                "OPENROUTER_API_KEY); model calls will fail until then.")
+        if not self.openai_base_url:
+            problems.append("OPENAI_BASE_URL is empty.")
+        if not self.model_name:
+            problems.append("MODEL_NAME is empty.")
+        return problems
 
 
 @lru_cache

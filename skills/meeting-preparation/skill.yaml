@@ -3,8 +3,11 @@ description: Prepare a concise brief for an upcoming meeting using memory + cale
 version: 0.1.0
 agent: research
 instructions: >
-  Retrieve relevant memories and calendar events, then produce a brief with
-  Objective, Background, Key points, Open questions, Next actions.
+  Retrieve relevant memories and calendar events, then write the brief in clear,
+  natural prose. Structure: Objective, Background, Key points, Open questions,
+  Next actions. Attribute every fact to its source (calendar, memory); anything
+  not found in context is a suggestion, never a stated fact. Do not invent
+  times, attendees, or agenda items.
 inputs: {topic: string}
 outputs: {brief: string}
 required_tools: [calendar, notes, email]

@@ -9,10 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
+import time
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, TypeAdapter
+
+log = logging.getLogger("aether.models")
 
 
 class ChatMessage(BaseModel):
@@ -55,6 +59,10 @@ class ProviderTimeoutError(ProviderError):
 
 class ProviderUnavailableError(ProviderError):
     pass
+
+
+class _EmptyResponse(Exception):
+    """Internal: model returned no usable content (transient — worth one retry)."""
 
 
 class ModelProvider:
@@ -112,7 +120,7 @@ class OpenAICompatibleProvider(ModelProvider):
                 p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") != "reasoning")
         text = content if isinstance(content, str) else ""
         if not text.strip():
-            raise ProviderError(f"Provider returned an empty response (model={model}).")
+            raise _EmptyResponse(f"empty content (model={model})")
         return text
 
     async def chat(self, messages: list[ChatMessage], model: str, **kw) -> ChatResponse:
@@ -129,34 +137,53 @@ class OpenAICompatibleProvider(ModelProvider):
         if kw.get("response_format") is not None:
             payload["response_format"] = kw["response_format"]
         timeout = kw.get("timeout", self.timeout)
-
+        host = self.base_url.split("://")[-1].split("/")[0]  # never log keys/headers/body
         last_err: Exception | None = None
         for attempt in range(self.max_retries + 1):
+            t0 = time.monotonic()
             try:
                 async with httpx.AsyncClient(timeout=timeout) as client:
                     resp = await client.post(f"{self.base_url}/chat/completions",
                                              headers=self._headers(), json=payload)
             except httpx.TimeoutException as e:
+                log.warning("model timeout host=%s model=%s after=%ss", host, model, timeout)
                 raise ProviderTimeoutError(
                     f"Model request timed out after {timeout}s without crashing the runtime.") from e
             except httpx.ConnectError as e:
+                log.warning("model unreachable host=%s model=%s", host, model)
                 raise ProviderUnavailableError(
                     f"Model provider at {self.base_url} is unreachable.") from e
             except httpx.HTTPError as e:
+                log.warning("model transport error host=%s model=%s err=%s",
+                            host, model, type(e).__name__)
                 raise ProviderUnavailableError(f"Model provider transport error: {type(e).__name__}.") from e
+            ms = (time.monotonic() - t0) * 1000
             if resp.status_code in (429, 500, 502, 503, 504) and attempt < self.max_retries:
                 last_err = self._status_error(resp, model)
+                log.info("model retry host=%s model=%s http=%s attempt=%s",
+                         host, model, resp.status_code, attempt + 1)
                 await asyncio.sleep(0.5 * (attempt + 1))
                 continue
             if resp.status_code != 200:
+                log.warning("model error host=%s model=%s http=%s",
+                            host, model, resp.status_code)
                 raise self._status_error(resp, model)
             try:
                 data = resp.json()
                 message = data["choices"][0]["message"]
             except (ValueError, KeyError, IndexError, TypeError) as e:
                 raise ProviderError("Provider returned a malformed response.") from e
-            return ChatResponse(text=self._extract_text(message, model),
-                                model=model, provider="openai_compatible")
+            try:
+                text = self._extract_text(message, model)
+            except _EmptyResponse:
+                if attempt < self.max_retries:
+                    log.info("model empty response, retrying host=%s model=%s", host, model)
+                    await asyncio.sleep(0.5 * (attempt + 1))
+                    continue
+                raise ProviderError(
+                    f"Provider returned an empty response (model={model}).") from None
+            log.info("model ok host=%s model=%s ms=%.0f", host, model, ms)
+            return ChatResponse(text=text, model=model, provider="openai_compatible")
         raise last_err or ProviderUnavailableError("Model provider unavailable after retries.")
 
     @staticmethod

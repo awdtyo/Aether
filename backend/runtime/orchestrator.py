@@ -10,10 +10,11 @@ import time
 from dataclasses import dataclass
 
 from agents.base import AgentContext
-from agents.specialized import AGENTS, pick_agent
+from agents.specialized import AGENTS
 from memory.service import worth_persisting
 from memory.schemas import MemoryCreate, MemoryType
 from policies.schemas import PolicyCheck
+from runtime.intent import classify_intent
 from runtime.schemas import Execution, ExecutionState
 
 
@@ -41,9 +42,17 @@ class Orchestrator:
         t0 = time.monotonic()
         try:
             self.store.transition(ex, ExecutionState.PLANNING, "intent analysis")
-            skill = self.skills.match(text)
-            agent_name = (skill.agent if skill else None) or self._route_agent(text)
+            decision, source = await classify_intent(text, self.deps.router, self.skills)
+            skill = next((s for s in self.skills.list() if s.name == decision.skill), None)
+            agent_name = (skill.agent if skill else None) or decision.agent
             ex.agent, ex.skill = agent_name, (skill.name if skill else None)
+            await self.deps.audit.record(
+                execution_id=ex.id, agent=agent_name, action="intent_classified",
+                resource=skill.name if skill else "direct",
+                reason=(f"source={source} agent={agent_name} "
+                        f"confidence={decision.confidence:.2f} "
+                        f"plan={' > '.join(decision.plan[:4])}").strip(),
+                status="ok")
             await self.deps.audit.record(execution_id=ex.id, agent=agent_name,
                                          action="agent_started",
                                          resource=skill.name if skill else "direct",
@@ -107,8 +116,7 @@ class Orchestrator:
                 except Exception:
                     pass
 
-            prefix = f"[{skill.name} v{skill.version}]\n" if skill else ""
-            return await self._finish(ex, agent_name, t0, prefix + result.text)
+            return await self._finish(ex, agent_name, t0, result.text)
         except Exception as e:
             ex.error = f"{type(e).__name__}: {e}"
             try:
@@ -146,13 +154,6 @@ class Orchestrator:
                                   (ex.result or "") + tail)
 
     # -- helpers -----------------------------------------------------------
-    def _route_agent(self, text: str) -> str:
-        t = text.lower()
-        if any(k in t for k in ("send", "email", "share", "brief")) and \
-           any(k in t for k in ("research", "meeting", "group", "brief")):
-            return "research"
-        return pick_agent(text)
-
     def _detect_sensitive(self, text: str) -> tuple[str, str] | None:
         t = text.lower()
         if any(k in t for k in ("send ", "send the", "email ", "mail ", "share ")) and \

@@ -37,8 +37,10 @@ async def execution_detail(execution_id: str):
     if not ex:
         return {"error": "not found"}
     events = await d.audit.list(execution_id=execution_id, limit=200)
+    from runtime.timeline import build_timeline
     return {"execution": ex.model_dump(),
-            "events": [e.model_dump() for e in events]}
+            "events": [e.model_dump() for e in events],
+            "timeline": build_timeline(ex, events)}
 
 
 # -- approvals ---------------------------------------------------------------
@@ -69,9 +71,12 @@ async def memory_create(body: MemoryCreate):
 
 
 @router.get("/memory")
-async def memory_list(type: str | None = None, limit: int = 100):
+async def memory_list(type: str | None = None, source: str | None = None, limit: int = 100):
     types = [MemoryType(type)] if type else None
-    return [m.model_dump() for m in await d.memory.list(types, limit)]
+    mems = await d.memory.list(types, limit * 2 if source else limit)
+    if source:
+        mems = [m for m in mems if m.source == source][:limit]
+    return [m.model_dump() for m in mems]
 
 
 @router.post("/memory/search")
@@ -83,6 +88,15 @@ async def memory_search(body: MemorySearchQuery):
 async def memory_get(mem_id: str):
     m = await d.memory.get(mem_id)
     return m.model_dump() if m else {"error": "not found"}
+
+
+@router.get("/memory/{mem_id}/related")
+async def memory_related(mem_id: str, limit: int = 5):
+    m = await d.memory.get(mem_id)
+    if not m:
+        return {"error": "not found"}
+    hits = [h for h in await d.memory.search(m.content, limit=limit + 1) if h.id != mem_id]
+    return [h.model_dump() for h in hits[:limit]]
 
 
 @router.patch("/memory/{mem_id}")
@@ -150,6 +164,40 @@ async def tool_call(name: str, body: ToolCallIn):
     return {"result": res.model_dump(), "policy": verdict.model_dump()}
 
 
+# -- skill discovery (experimental: propose only; creation needs approval) ---
+@router.get("/discovery/proposals")
+async def discovery_proposals():
+    from agents.specialized import AGENTS
+    from skills.discovery import find_proposals
+    return [p.model_dump() for p in find_proposals(
+        d.store.list(200), {s.name for s in d.skills.list()},
+        {name: a.tools for name, a in AGENTS.items()})]
+
+
+@router.post("/discovery/{proposal_id}/approve")
+async def discovery_approve(proposal_id: str):
+    import re
+    from pathlib import Path
+    from agents.specialized import AGENTS
+    from skills.discovery import find_proposals, render_skill_yaml
+    proposals = {p.id: p for p in find_proposals(
+        d.store.list(200), {s.name for s in d.skills.list()},
+        {name: a.tools for name, a in AGENTS.items()})}
+    p = proposals.get(proposal_id)
+    if not p:
+        return {"error": "proposal not found (it may no longer qualify)"}
+    slug = re.sub(r"[^a-z0-9-]+", "-", p.name.lower()).strip("-")[:48]
+    base = next((b for b in (Path("skills"), Path("../skills")) if b.exists()), Path("skills"))
+    target = base / f"discovered-{slug}" / "skill.yaml"  # one level: registry scans */skill.yaml
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(render_skill_yaml(p))
+    d.skills.reload()
+    await d.audit.record(execution_id="", agent="user", action="skill_created",
+                         resource=p.name, reason="discovery proposal approved",
+                         status="ok")
+    return {"created": p.name, "path": str(target)}
+
+
 # -- activity / models -----------------------------------------------------------
 @router.get("/activity")
 async def activity(limit: int = 100):
@@ -158,6 +206,8 @@ async def activity(limit: int = 100):
 
 @router.get("/models")
 async def models():
+    from core.config import get_settings
     return {"provider": d.router.provider.name, "models": d.router.models,
             "status": d.router.status(),  # safe: no keys or headers
+            "demo_mode": get_settings().demo_mode,
             "db": "postgres" if d.db_available else "sqlite/in-memory"}
